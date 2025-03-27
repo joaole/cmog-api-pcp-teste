@@ -1,0 +1,28 @@
+# Ambiente virtual
+venv/
+.env/
+.env.local
+
+# Arquivos de Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Configs de IDEs
+.vscode/
+.idea/
+
+# Logs e temporários
+*.log
+*.tmp
+*.bak
+
+# Arquivos de saída (opcional, se gerar)
+output/
+data/
+*.csv
+*.json
+
+# Testes
+.coverage
+.pytest_cache/
