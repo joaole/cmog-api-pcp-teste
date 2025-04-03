@@ -46,27 +46,26 @@ for estado in estados:
         for licitacao in data["dadosLicitacoes"]:
             # Inserir dados do município (caso não existam)
             municipio_data = {
-                "idMunicipio": licitacao["municipio"]["codigoIBGE"],
                 # Usando o codigoIBGE como idMunicipio
-                "codigoIBGE": licitacao["municipio"]["codigoIBGE"],
-                "nomeMunicipio": licitacao["municipio"]["nomeMunicipio"],
-                "ufMunicipio": licitacao["municipio"]["ufMunicipio"],
+                "codigo_ibge": licitacao["municipio"]["codigoIBGE"],
+                "nome_municipio": licitacao["municipio"]["nomeMunicipio"],
+                "uf_municipio": licitacao["municipio"]["ufMunicipio"],
             }
             if municipio_data not in municipios_data:
                 municipios_data.append(municipio_data)
 
             # Inserir dados da licitação com a `idLicitacao` da API
             licitacao_data = {
-                "idLicitacao": licitacao[
+                "id_licitacao": licitacao[
                     "idLicitacao"
                 ],  # Usando o idLicitacao diretamente da resposta da API
                 "numero": licitacao["numero"],
-                "dataAberturaPropostas": licitacao["dataAberturaPropostas"],
-                "horaAberturaPropostas": licitacao["horaAberturaPropostas"],
-                "tipoLicitacao": licitacao["tipoLicitacao"],
+                "data_abertura_propostas": licitacao["dataAberturaPropostas"],
+                "hora_abertura_propostas": licitacao["horaAberturaPropostas"],
+                "tipo_licitacao": licitacao["tipoLicitacao"],
                 "comprador": licitacao["comprador"],
                 "url": licitacao["url"],
-                "idMunicipio": licitacao["municipio"][
+                "id_municipio": licitacao["municipio"][
                     "codigoIBGE"
                 ],  # Usando o codigoIBGE como idMunicipio
             }
@@ -75,58 +74,66 @@ for estado in estados:
             # Inserir itens com o idLicitacao diretamente da API
             for item in licitacao["itens"]:
                 item_data = {
-                    "idItem": item["idItem"],
-                    "NR_ITEM": item["NR_ITEM"],
-                    "DS_ITEM": item["DS_ITEM"],
-                    "QT_ITENS": item["QT_ITENS"],
-                    "VL_UNITARIO_ESTIMADO": item["VL_UNITARIO_ESTIMADO"],
-                    "idLicitacao": licitacao[
+                    "id_item": item["idItem"],
+                    "nr_item": str(item["NR_ITEM"]),
+                    "ds_item": str(item["DS_ITEM"]),
+                    "qt_itens": str(item["QT_ITENS"]),
+                    "vl_unitario_estimado": str(item["VL_UNITARIO_ESTIMADO"]),
+                    "id_licitacao": licitacao[
                         "idLicitacao"
                     ],  # Usando o idLicitacao diretamente da API
                 }
-                itens_data.append(item_data)
+                if item_data["id_item"] not in [i["id_item"] for i in itens_data]:
+                    itens_data.append(item_data)
 
             # Inserir grupos de materiais com o idLicitacao diretamente da API
             for grupo in licitacao["gruposMateriais"]:
                 grupo_data = {
-                    "idGrupoMaterial": grupo["idGrupoMaterial"],
-                    "nomeGrupoMaterial": grupo["nomeGrupoMaterial"],
-                    "idLicitacao": licitacao[
+                    "id_grupo_material": grupo["idGrupoMaterial"],
+                    "nome_grupo_material": grupo["nomeGrupoMaterial"],
+                    "id_licitacao": licitacao[
                         "idLicitacao"
                     ],  # Usando o idLicitacao diretamente da API
                 }
-                grupos_materiais_data.append(grupo_data)
+                if grupo_data["id_grupo_material"] not in [
+                    g["id_grupo_material"] for g in grupos_materiais_data
+                ]:
+                    grupos_materiais_data.append(grupo_data)
 
                 # Inserir classes de materiais com o idGrupoMaterial da API
                 for classe in grupo["classesMateriais"]:
                     classe_data = {
-                        "idClasseMaterial": classe["idClasseMaterial"],
-                        "nomeClasseMaterial": classe["nomeClasseMaterial"],
-                        "idGrupoMaterial": grupo["idGrupoMaterial"],
+                        "id_classe_material": classe["idClasseMaterial"],
+                        "nome_classe_material": classe["nomeClasseMaterial"],
+                        "id_grupo_material": grupo["idGrupoMaterial"],
                     }
-                    classes_materiais_data.append(classe_data)
+                    if classe_data["id_classe_material"] not in [
+                        c["id_classe_material"] for c in classes_materiais_data
+                    ]:
+                        classes_materiais_data.append(classe_data)
 
             # Inserir CNAEs com o idLicitacao diretamente da API
             for cnae in licitacao["cnaes"]:
                 cnae_data = {
                     "cnae": cnae["cnae"],
                     "descricao": cnae["descricao"],
-                    "idLicitacao": licitacao[
+                    "id_licitacao": licitacao[
                         "idLicitacao"
                     ],  # Usando o idLicitacao diretamente da API
                 }
-                cnaes_data.append(cnae_data)
+                if cnae_data["cnae"] not in [c["cnae"] for c in cnaes_data]:
+                    cnaes_data.append(cnae_data)
 
     else:
         print(f"Error: {response.status_code} for estado {estado}")
         print(response.text)
 
 # Inserir os dados no Supabase
-supabase.table("municipios").upsert(municipios_data)
-supabase.table("licitacoes").upsert(licitacoes_data)
-supabase.table("itens").upsert(itens_data)
-supabase.table("grupos_materiais").upsert(grupos_materiais_data)
-supabase.table("classes_materiais").upsert(classes_materiais_data)
-supabase.table("cnaes").upsert(cnaes_data)
+supabase.table("municipios").upsert(municipios_data).execute()
+supabase.table("licitacoes").upsert(licitacoes_data).execute()
+supabase.table("itens").upsert(itens_data).execute()
+supabase.table("grupos_materiais").upsert(grupos_materiais_data).execute()
+supabase.table("classes_materiais").upsert(classes_materiais_data).execute()
+supabase.table("cnaes").upsert(cnaes_data).execute()
 
 print("Dados inseridos com sucesso no Supabase!")
