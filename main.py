@@ -1,7 +1,9 @@
 import os
+
 import dotenv
 import requests
 from supabase import Client, create_client
+
 from constantes.estados_list import estados
 
 dotenv.load_dotenv()
@@ -20,9 +22,7 @@ url = "https://apipcp.portaldecompraspublicas.com.br/publico/obterProcessosPropo
 municipios_data = []
 licitacoes_data = []
 itens_data = []
-grupos_materiais_data = []
-classes_materiais_data = []
-cnaes_data = []
+
 
 # IDs para controle de atualizações
 licitacoes_ids_atuais = set()
@@ -49,29 +49,6 @@ for estado in estados:
             if municipio_data not in municipios_data:
                 municipios_data.append(municipio_data)
 
-            # Concatenar descrições dos itens como "objeto"
-            descricao_itens = " | ".join(
-                [
-                    str(item["DS_ITEM"]).strip()
-                    for item in licitacao["itens"]
-                    if item.get("DS_ITEM")
-                ]
-            )
-
-            # LICITAÇÃO com objeto preenchido
-            licitacao_data = {
-                "id_licitacao": licitacao["idLicitacao"],
-                "numero": licitacao["numero"],
-                "data_abertura_propostas": licitacao["dataAberturaPropostas"],
-                "hora_abertura_propostas": licitacao["horaAberturaPropostas"],
-                "tipo_licitacao": licitacao["tipoLicitacao"],
-                "comprador": licitacao["comprador"],
-                "url": licitacao["url"],
-                "id_municipio": licitacao["municipio"]["codigoIBGE"],
-                "objeto": descricao_itens,
-            }
-            licitacoes_data.append(licitacao_data)
-
             # ITENS
             for item in licitacao["itens"]:
                 item_data = {
@@ -85,38 +62,37 @@ for estado in estados:
                 if item_data["id_item"] not in [i["id_item"] for i in itens_data]:
                     itens_data.append(item_data)
 
-            # GRUPOS MATERIAIS E CLASSES
+            # LICITAÇÃO com objeto preenchido
+            descricao_itens = []
+
+            for item in licitacao["itens"]:
+                if item.get("DS_ITEM"):
+                    descricao_itens.append(str(item["DS_ITEM"]).strip())
+
             for grupo in licitacao["gruposMateriais"]:
-                grupo_data = {
-                    "id_grupo_material": grupo["idGrupoMaterial"],
-                    "nome_grupo_material": grupo["nomeGrupoMaterial"],
-                    "id_licitacao": licitacao["idLicitacao"],
-                }
-                if grupo_data["id_grupo_material"] not in [
-                    g["id_grupo_material"] for g in grupos_materiais_data
-                ]:
-                    grupos_materiais_data.append(grupo_data)
+                nome_grupo = grupo.get("nomeGrupoMaterial")
+                if nome_grupo:
+                    descricao_itens.append(str(nome_grupo).strip())
+                for classe in grupo.get("classesMateriais"):
+                    nome_classe = classe.get("nomeClasseMaterial")
+                    if nome_classe:
+                        descricao_itens.append(str(nome_classe).strip())
 
-                for classe in grupo["classesMateriais"]:
-                    classe_data = {
-                        "id_classe_material": classe["idClasseMaterial"],
-                        "nome_classe_material": classe["nomeClasseMaterial"],
-                        "id_grupo_material": grupo["idGrupoMaterial"],
-                    }
-                    if classe_data["id_classe_material"] not in [
-                        c["id_classe_material"] for c in classes_materiais_data
-                    ]:
-                        classes_materiais_data.append(classe_data)
+            objeto = " | ".join(descricao_itens).strip()
 
-            # CNAEs
-            for cnae in licitacao["cnaes"]:
-                cnae_data = {
-                    "cnae": cnae["cnae"],
-                    "descricao": cnae["descricao"],
-                    "id_licitacao": licitacao["idLicitacao"],
-                }
-                if cnae_data["cnae"] not in [c["cnae"] for c in cnaes_data]:
-                    cnaes_data.append(cnae_data)
+            # LICITAÇÃO
+            licitacao_data = {
+                "id_licitacao": licitacao["idLicitacao"],
+                "numero": licitacao["numero"],
+                "data_abertura_proposta": licitacao["dataAberturaPropostas"],
+                "hora_abertura_proposta": licitacao["horaAberturaPropostas"],
+                "tipo_licitacao": licitacao["tipoLicitacao"],
+                "comprador": licitacao["comprador"],
+                "url": licitacao["url"],
+                "id_municipio": licitacao["municipio"]["codigoIBGE"],
+                "objeto": objeto,
+            }
+            licitacoes_data.append(licitacao_data)
     else:
         print(f"⚠️ Erro {response.status_code} ao buscar dados de {estado}")
 
@@ -138,9 +114,6 @@ def log_upsert(table, data):
 log_upsert("municipios", municipios_data)
 log_upsert("licitacoes", licitacoes_data)
 log_upsert("itens", itens_data)
-log_upsert("grupos_materiais", grupos_materiais_data)
-log_upsert("classes_materiais", classes_materiais_data)
-log_upsert("cnaes", cnaes_data)
 
 # =============================
 # ❌ Deletando licitações antigas (opcional)
@@ -168,8 +141,34 @@ print("\n📊 Resumo da execução:")
 print(f"• Municípios inseridos: {len(municipios_data)}")
 print(f"• Licitações atualizadas/inseridas: {len(licitacoes_data)}")
 print(f"• Itens processados: {len(itens_data)}")
-print(f"• Grupos de materiais: {len(grupos_materiais_data)}")
-print(f"• Classes de materiais: {len(classes_materiais_data)}")
-print(f"• CNAEs processados: {len(cnaes_data)}")
 print(f"• Licitações excluídas: {len(to_delete_ids)}")
 print("✅ Dados atualizados com sucesso!")
+
+"""
+Este script coleta dados de licitações públicas de uma API externa, organiza e insere
+os dados em um banco de dados Supabase.
+Além disso, remove registros antigos que não estão mais presentes na API.
+
+### Funcionalidades principais:
+1. **Coleta de dados**:
+    - Faz requisições para uma API pública para obter informações de licitações,
+    municípios e itens.
+    - Processa e organiza os dados coletados.
+
+2. **Inserção no banco de dados**:
+    - Insere ou atualiza os dados no banco de dados Supabase usando a operação `upsert`.
+
+3. **Remoção de dados obsoletos**:
+    - Identifica e remove registros de licitações que não estão mais presentes na API.
+
+### Estrutura de dados:
+- **Municípios**: Contém informações como código IBGE, nome e UF.
+- **Licitações**: Inclui detalhes como ID, número, data de abertura, tipo, comprador e
+descrição do objeto.
+- **Itens**: Lista de itens associados às licitações, com informações como ID,
+descrição, quantidade e valor estimado.
+
+### Resumo da execução:
+Ao final, o script exibe um resumo com a quantidade de registros inseridos/atualizados
+e excluídos.
+"""
